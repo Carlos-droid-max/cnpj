@@ -2,122 +2,108 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Consulta CNPJ 📄</title>
+  <title>Consulta CNPJ + Notion</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      background: #f0f2f5;
-      color: #333;
-    }
-    h1 {
-      color: #2c3e50;
-    }
-    input, button {
-      padding: 10px;
-      font-size: 16px;
-      margin-right: 10px;
-    }
-    #resultado {
-      margin-top: 30px;
-      padding: 20px;
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .label {
-      font-weight: bold;
-      color: #444;
-    }
-    .item {
-      margin-bottom: 10px;
-    }
-    .grupo {
-      margin-top: 20px;
-    }
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f0f2f5; color: #333; }
+    h1 { color: #2c3e50; }
+    input, button { padding: 10px; font-size: 16px; margin-right: 10px; }
+    #resultado { margin-top: 30px; padding: 20px; background: white; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .label { font-weight: bold; color: #444; }
+    .item { margin-bottom: 10px; }
   </style>
 </head>
 <body>
-  <h1>🔍 Consulta de CNPJ</h1>
-  <input type="text" id="cnpj" placeholder="Digite o CNPJ (com ou sem formatação)" />
-  <button onclick="consultar()">Consultar</button>
+  <h1>🔍 Consulta de CNPJ + Envio para Notion</h1>
+  <input type="text" id="cnpj" placeholder="Digite o CNPJ" />
+  <button onclick="consultar()">Consultar e Enviar</button>
 
   <div id="resultado"></div>
 
-  <script>
-    function formatCNPJ(cnpj) {
-      return cnpj
-        .replace(/^(\d{2})(\d)/, '$1.$2')
-        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-        .replace(/\.(\d{3})(\d)/, '.$1/$2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-        .replace(/(-\d{2})\d+?$/, '$1');
-    }
+<script>
+const NOTION_API_URL = 'https://api.notion.com/v1/pages';
+const NOTION_TOKEN = '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';
+const DATABASE_ID = '230fbac9c4b380559c7bc74b3c1504e7';
 
-    async function consultar() {
-      const campo = document.getElementById('cnpj');
-      const cnpjLimpo = campo.value.replace(/\D/g, '');
-      const resultado = document.getElementById('resultado');
-      resultado.innerHTML = '⏳ Buscando dados...';
+function formatCNPJ(cnpj) {
+  return cnpj
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2')
+    .replace(/(-\d{2})\d+?$/, '$1');
+}
 
-      if (cnpjLimpo.length !== 14) {
-        resultado.innerHTML = '❌ CNPJ inválido. Digite exatamente 14 números.';
-        return;
-      }
+async function consultar() {
+  const campo = document.getElementById('cnpj');
+  const cnpjLimpo = campo.value.replace(/\D/g, '');
+  const resultado = document.getElementById('resultado');
+  resultado.innerHTML = '⏳ Buscando dados...';
 
-      try {
-        const res = await fetch(`https://publica.cnpj.ws/cnpj/${cnpjLimpo}`);
-        if (!res.ok) throw new Error('CNPJ não encontrado ou erro de conexão.');
+  if (cnpjLimpo.length !== 14) {
+    resultado.innerHTML = '❌ CNPJ inválido. Digite exatamente 14 números.';
+    return;
+  }
 
-        const d = await res.json();
+  try {
+    const res = await fetch(`https://publica.cnpj.ws/cnpj/${cnpjLimpo}`);
+    if (!res.ok) throw new Error('CNPJ não encontrado ou erro de conexão.');
 
-        resultado.innerHTML = `
-          <div class="item"><span class="label">🆔 CNPJ Formatado:</span> ${formatCNPJ(cnpjLimpo)}</div>
-          <div class="item"><span class="label">🏢 Razão Social:</span> ${d.razao_social}</div>
-          <div class="item"><span class="label">📛 Nome Fantasia:</span> ${d.estabelecimento.nome_fantasia || 'Não informado'}</div>
-          <div class="item"><span class="label">📅 Abertura:</span> ${d.estabelecimento.data_inicio}</div>
-          <div class="item"><span class="label">📌 Situação:</span> ${d.estabelecimento.situacao_cadastral}</div>
-          <div class="item"><span class="label">💰 Capital Social:</span> R$ ${parseFloat(d.capital_social).toLocaleString('pt-BR')}</div>
-          <div class="item"><span class="label">🏷️ Porte:</span> ${d.porte.nome}</div>
-          <div class="item"><span class="label">⚖️ Natureza Jurídica:</span> ${d.natureza_juridica.descricao}</div>
+    const d = await res.json();
 
-          <div class="grupo">
-            <div class="label">🧾 CNAE Principal:</div>
-            <div>${d.estabelecimento.atividade_principal.descricao}</div>
-          </div>
+    const nomeEmpresa = d.razao_social;
+    const fantasia = d.estabelecimento.nome_fantasia || 'Não informado';
+    const capital = d.capital_social;
+    const porte = d.porte.nome;
+    const cnae = d.estabelecimento.atividade_principal.descricao;
 
-          <div class="grupo">
-            <div class="label">📁 CNAEs Secundárias:</div>
-            <ul>
-              ${(d.estabelecimento.atividades_secundarias || []).map(a => `<li>${a.descricao}</li>`).join('') || '<li>Nenhuma</li>'}
-            </ul>
-          </div>
+    resultado.innerHTML = `
+      <div class="item"><span class="label">🏢 Razão Social:</span> ${nomeEmpresa}</div>
+      <div class="item"><span class="label">📛 Nome Fantasia:</span> ${fantasia}</div>
+      <div class="item"><span class="label">💰 Capital Social:</span> R$ ${parseFloat(capital).toLocaleString('pt-BR')}</div>
+      <div class="item"><span class="label">🏷️ Porte:</span> ${porte}</div>
+      <div class="item"><span class="label">🧾 CNAE:</span> ${cnae}</div>
+    `;
 
-          <div class="grupo">
-            <div class="label">📍 Endereço:</div>
-            <div>${d.estabelecimento.tipo_logradouro} ${d.estabelecimento.logradouro}, ${d.estabelecimento.numero}</div>
-            <div>${d.estabelecimento.bairro}, ${d.estabelecimento.cidade.nome} - ${d.estabelecimento.estado.sigla}</div>
-            <div>CEP: ${d.estabelecimento.cep}</div>
-            <div>Complemento: ${d.estabelecimento.complemento || 'Não informado'}</div>
-          </div>
+    // Enviar para o Notion
+    await fetch(NOTION_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${NOTION_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28'
+      },
+      body: JSON.stringify({
+        parent: { database_id: DATABASE_ID },
+        properties: {
+          'Nome da Empresa': {
+            title: [{ text: { content: nomeEmpresa } }]
+          },
+          'Nome Fantasia': {
+            rich_text: [{ text: { content: fantasia } }]
+          },
+          'Capital Social': {
+            rich_text: [{ text: { content: `R$ ${parseFloat(capital).toLocaleString('pt-BR')}` } }]
+          },
+          'Porte': {
+            rich_text: [{ text: { content: porte } }]
+          },
+          'CNAE Principal': {
+            rich_text: [{ text: { content: cnae } }]
+          },
+          'CNPJ': {
+            rich_text: [{ text: { content: formatCNPJ(cnpjLimpo) } }]
+          }
+        }
+      })
+    });
 
-          <div class="grupo">
-            <div class="label">📞 Contato:</div>
-            <div>Telefone: (${d.estabelecimento.ddd1 || '--'}) ${d.estabelecimento.telefone1 || 'Não informado'}</div>
-            <div>Email: ${d.estabelecimento.email || 'Não informado'}</div>
-          </div>
+    resultado.innerHTML += '<div style="margin-top:20px; color:green;">✅ Dados enviados ao Notion!</div>';
 
-          <div class="grupo">
-            <div class="label">👥 Sócios:</div>
-            <ul>
-              ${(d.socios || []).map(s => `<li>${s.nome} (${s.qualificacao})</li>`).join('') || '<li>Não informado</li>'}
-            </ul>
-          </div>
-        `;
-      } catch (err) {
-        resultado.innerHTML = `❌ Erro: ${err.message}`;
-      }
-    }
-  </script>
+  } catch (err) {
+    resultado.innerHTML = `❌ Erro: ${err.message}`;
+  }
+}
+</script>
+
 </body>
 </html>
